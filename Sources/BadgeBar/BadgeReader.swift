@@ -20,12 +20,6 @@ final class BadgeReader {
     private var dockPID: pid_t = -1
     private var tileCache: [String: AXUIElement] = [:]   // bundleId -> Dock tile
 
-    init() {
-        // AX calls are synchronous IPC; keep an unresponsive Dock from
-        // blocking the menu-bar application's main thread for several seconds.
-        _ = AXUIElementSetMessagingTimeout(AXUIElementCreateSystemWide(), 1.0)
-    }
-
     /// Drop stale handles immediately when the monitored-app set changes.
     func retainOnly(bundleIDs ids: Set<String>) {
         tileCache = tileCache.filter { ids.contains($0.key) }
@@ -165,6 +159,7 @@ final class BadgeReader {
         if dockElement == nil || dockPID != pid {
             dockPID = pid
             dockElement = AXUIElementCreateApplication(pid)
+            if let dockElement { _ = AXUIElementSetMessagingTimeout(dockElement, 1.0) }
             tileCache.removeAll()   // Dock restarted — drop stale tiles
         }
         return dockElement
