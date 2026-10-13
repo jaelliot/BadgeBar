@@ -199,7 +199,10 @@ private struct PreferencesTab: View {
                             .foregroundStyle(.secondary)
                     }
                     Spacer()
-                    Button(L.t("Open Settings")) { openAccessibilitySettings() }
+                    Button(accessibilityTrusted ? L.t("Open Settings") : L.t("Grant Access")) {
+                        if !accessibilityTrusted { Accessibility.prompt() }
+                        openAccessibilitySettings()
+                    }
                 }
             }
 
@@ -218,6 +221,9 @@ private struct PreferencesTab: View {
         .onAppear {
             accessibilityTrusted = Accessibility.isTrusted
             launchAtLogin = LaunchAtLogin.isEnabled
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            accessibilityTrusted = Accessibility.isTrusted
         }
     }
 

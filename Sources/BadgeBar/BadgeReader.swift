@@ -20,13 +20,25 @@ final class BadgeReader {
     private var dockPID: pid_t = -1
     private var tileCache: [String: AXUIElement] = [:]   // bundleId -> Dock tile
 
+    init() {
+        // AX calls are synchronous IPC; keep an unresponsive Dock from
+        // blocking the menu-bar application's main thread for several seconds.
+        _ = AXUIElementSetMessagingTimeout(AXUIElementCreateSystemWide(), 1.0)
+    }
+
+    /// Drop stale handles immediately when the monitored-app set changes.
+    func retainOnly(bundleIDs ids: Set<String>) {
+        tileCache = tileCache.filter { ids.contains($0.key) }
+        if ids.isEmpty {
+            dockElement = nil
+            dockPID = -1
+            ticksSinceWalk = .max
+        }
+    }
+
     /// Returns `[bundleId: badgeText]` for apps that currently have a badge.
     func badges(for apps: [MonitoredApp]) -> [String: String] {
-        // Drop cached tiles for apps no longer monitored (bounded memory).
-        let ids = Set(apps.map(\.bundleId))
-        if tileCache.count > ids.count {
-            tileCache = tileCache.filter { ids.contains($0.key) }
-        }
+        retainOnly(bundleIDs: Set(apps.map(\.bundleId)))
 
         var result: [String: String] = [:]
         var hasStale = false
@@ -104,12 +116,15 @@ final class BadgeReader {
     private func walkDock() -> DockScan {
         guard let dock = currentDock() else { return DockScan() }
         var scan = DockScan()
-        collectTiles(from: dock, depth: 0, into: &scan)
+        var remainingNodes = 512 // Bound unexpectedly large or malformed trees.
+        collectTiles(from: dock, depth: 0, remainingNodes: &remainingNodes, into: &scan)
         return scan
     }
 
-    private func collectTiles(from element: AXUIElement, depth: Int, into scan: inout DockScan) {
-        guard depth < 6 else { return }   // the Dock tree is shallow; cap as a safety net
+    private func collectTiles(from element: AXUIElement, depth: Int,
+                              remainingNodes: inout Int, into scan: inout DockScan) {
+        guard depth < 6, remainingNodes > 0 else { return }
+        remainingNodes -= 1
 
         // Only elements that support AXStatusLabel are Dock tiles.
         var statusValue: AnyObject?
@@ -124,7 +139,9 @@ final class BadgeReader {
         }
 
         for child in children(of: element) {
-            collectTiles(from: child, depth: depth + 1, into: &scan)
+            guard remainingNodes > 0 else { break }
+            collectTiles(from: child, depth: depth + 1,
+                         remainingNodes: &remainingNodes, into: &scan)
         }
     }
 

@@ -63,4 +63,30 @@ final class BadgeBarTests: XCTestCase {
         XCTAssertNil(app.showCountOverride)
         XCTAssertNil(app.alertOverride)
     }
+    func testMonitoredAppChangesNotifyImmediately() {
+        let suite = "BadgeBarTests.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suite) else {
+            XCTFail("Could not create isolated defaults")
+            return
+        }
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let store = AppStore(defaults: defaults)
+        var changes = 0
+        store.onMonitoredAppsChanged = { changes += 1 }
+        let app = MonitoredApp(bundleId: "com.example.test", name: "Example", titles: ["Example"])
+        store.add(app)
+        XCTAssertEqual(changes, 1)
+        store.add(app)
+        XCTAssertEqual(changes, 1)
+        store.remove("com.example.missing")
+        XCTAssertEqual(changes, 1)
+        store.remove(app.bundleId)
+        XCTAssertEqual(changes, 2)
+    }
+
+    func testAlertParsingDoesNotFireForBadgeDecrease() {
+        XCTAssertFalse(BadgeMonitor.isNewMessage(old: "99+", new: "9+"))
+        XCTAssertFalse(BadgeMonitor.isNewMessage(old: "4", new: "4"))
+    }
+
 }

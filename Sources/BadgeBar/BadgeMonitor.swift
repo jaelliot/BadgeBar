@@ -29,8 +29,35 @@ final class BadgeMonitor {
     }
 
     func start() {
+        guard !store.monitoredApps.isEmpty else {
+            onTick?()
+            return
+        }
         scheduleTimer()
-        timer?.fire()
+        tick()
+    }
+
+    /// Called after an app is added, removed, reordered, or configured.
+    /// No timer is retained when there is nothing to monitor.
+    func monitoredAppsDidChange() {
+        let ids = Set(store.monitoredApps.map(\.bundleId))
+        previousText = previousText.filter { ids.contains($0.key) }
+        primedApps.formIntersection(ids)
+        reader.retainOnly(bundleIDs: ids)
+        for id in Array(store.badges.keys) where !ids.contains(id) {
+            store.badges[id] = nil
+        }
+
+        guard !ids.isEmpty else {
+            timer?.invalidate()
+            timer = nil
+            currentInterval = 0
+            onTick?()
+            return
+        }
+
+        if timer == nil { scheduleTimer() }
+        tick()
     }
 
     private func scheduleTimer() {
@@ -62,10 +89,8 @@ final class BadgeMonitor {
         let apps = store.monitoredApps
         let ids = Set(apps.map(\.bundleId))
 
-        // Drop state for apps that are no longer monitored (bounded memory).
-        if previousText.count > ids.count {
-            previousText = previousText.filter { ids.contains($0.key) }
-        }
+        // Always prune removed IDs, including remove-one/add-one transitions.
+        previousText = previousText.filter { ids.contains($0.key) }
         primedApps.formIntersection(ids)
 
         // Without Accessibility access nothing can be read: clear badges, let
