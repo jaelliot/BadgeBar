@@ -25,11 +25,8 @@ private struct AppsTab: View {
     @State private var search = ""
 
     private var filteredApps: [AppInfo] {
-        let sorted = installed.apps.sorted {
-            $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
-        }
-        guard !search.isEmpty else { return sorted }
-        return sorted.filter { $0.name.localizedCaseInsensitiveContains(search) }
+        guard !search.isEmpty else { return installed.apps }
+        return installed.apps.filter { $0.name.localizedCaseInsensitiveContains(search) }
     }
 
     var body: some View {

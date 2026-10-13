@@ -1,4 +1,5 @@
 import AppKit
+import os
 
 /// Owns the menu-bar status items: one per monitored app, plus a fallback icon
 /// (for the empty state, the "always show" option, or an Accessibility warning).
@@ -7,6 +8,7 @@ import AppKit
 @MainActor
 final class StatusItemController: NSObject {
     private let store: AppStore
+    private let signposter = OSSignposter(subsystem: "com.ahmetrende.badgebar", category: "Performance")
 
     /// Invoked when the user asks to open the configuration window.
     var onConfigure: (() -> Void)?
@@ -26,6 +28,8 @@ final class StatusItemController: NSObject {
 
     /// Reconcile the live status items with the store and refresh their badges.
     func sync() {
+        let interval = signposter.beginInterval("StatusBarSync", id: signposter.makeSignpostID())
+        defer { signposter.endInterval("StatusBarSync", interval) }
         let apps = store.monitoredApps
         let desiredOrder = apps.map(\.bundleId)
         let wantedIds = Set(desiredOrder)

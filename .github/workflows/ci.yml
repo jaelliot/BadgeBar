@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
 
 jobs:
   build-test:
@@ -16,3 +17,5 @@ jobs:
         run: swift build
       - name: Test
         run: swift test
+      - name: Release build
+        run: swift build -c release

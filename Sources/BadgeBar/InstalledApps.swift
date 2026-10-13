@@ -72,7 +72,11 @@ final class InstalledApps {
                 name: name.replacingOccurrences(of: ".app", with: "")
             )
         }
-        apps = Array(byBundle.values)
+        // Stable ordering is computed once after Spotlight finishes, not
+        // re-sorted on every SwiftUI state update or search keystroke.
+        apps = Array(byBundle.values).sorted {
+            $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
+        }
         query.stop()
     }
 }

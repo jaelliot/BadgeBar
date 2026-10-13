@@ -1,4 +1,5 @@
 import Foundation
+import os
 
 /// Drives the once-per-second poll of the Dock and pushes fresh badge values
 /// into the store. The Accessibility API can't notify us when a tile's
@@ -8,6 +9,7 @@ import Foundation
 final class BadgeMonitor {
     private let store: AppStore
     private let reader = BadgeReader()
+    private let signposter = OSSignposter(subsystem: "com.ahmetrende.badgebar", category: "Performance")
     private var timer: Timer?
     private var currentInterval: TimeInterval = 0
 
@@ -66,6 +68,9 @@ final class BadgeMonitor {
         timer = Timer.scheduledTimer(withTimeInterval: currentInterval, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.tick() }
         }
+        // Let macOS coalesce wakeups with other timers; badges need not update
+        // at an exact millisecond boundary.
+        timer?.tolerance = currentInterval * 0.1
     }
 
     /// Decides whether a badge change should raise a "new message" alert.
@@ -86,6 +91,8 @@ final class BadgeMonitor {
     }
 
     private func tick() {
+        let interval = signposter.beginInterval("PollCycle", id: signposter.makeSignpostID())
+        defer { signposter.endInterval("PollCycle", interval) }
         let apps = store.monitoredApps
         let ids = Set(apps.map(\.bundleId))
 
