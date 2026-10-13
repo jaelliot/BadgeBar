@@ -22,21 +22,14 @@ if [ -f "$ROOT/AppIcon.icns" ]; then
     cp "$ROOT/AppIcon.icns" "$CONTENTS/Resources/AppIcon.icns"
 fi
 
-# Prefer a stable self-signed identity (created by setup-signing.sh) so the
-# Accessibility permission survives rebuilds. Fall back to ad-hoc otherwise.
-# shellcheck source=signing-config.sh
-source "$ROOT/signing-config.sh"
-BUNDLE_ID="com.ahmetrende.badgebar"
-
-# Note: a self-signed cert is "not trusted", so it won't appear under
-# `find-identity -v`; query without -v to find it.
-if [ -f "$KEYCHAIN" ] && security find-identity -p codesigning "$KEYCHAIN" 2>/dev/null | grep -q "$IDENTITY"; then
-    echo "▸ Code-signing with stable identity ($IDENTITY)…"
-    security unlock-keychain -p "$KC_PASS" "$KEYCHAIN" 2>/dev/null || true
-    codesign --force --sign "$IDENTITY" --identifier "$BUNDLE_ID" "$APP_DIR"
+# Do not unlock keychains with hard-coded passwords or automatically create
+# signing identities. For distribution, supply a trusted signing identity.
+# Local builds use ad-hoc signatures and may require new Accessibility consent.
+if [ -n "${BADGEBAR_SIGNING_IDENTITY:-}" ]; then
+    codesign --force --options runtime --sign "$BADGEBAR_SIGNING_IDENTITY" "$APP_DIR"
 else
-    echo "▸ Code-signing (ad-hoc — run ./setup-signing.sh to make permission persist)…"
     codesign --force --sign - "$APP_DIR"
 fi
+codesign --verify --strict --verbose=2 "$APP_DIR"
 
 echo "✓ Built $APP_DIR"

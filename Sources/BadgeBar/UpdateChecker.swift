@@ -22,13 +22,16 @@ enum UpdateChecker {
         request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
         request.timeoutInterval = 10
 
-        guard let (data, _) = try? await URLSession.shared.data(for: request),
+        guard let (data, response) = try? await URLSession.shared.data(for: request),
+              let http = response as? HTTPURLResponse, http.statusCode == 200,
+              data.count <= 65_536,
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let tag = json["tag_name"] as? String
+              let tag = json["tag_name"] as? String,
+              tag.count <= 32, tag.range(of: #"^v?[0-9]+(\.[0-9]+){0,3}$"#, options: .regularExpression) != nil
         else { return nil }
 
         let latest = tag.hasPrefix("v") ? String(tag.dropFirst()) : tag
-        let page = (json["html_url"] as? String).flatMap(URL.init(string:)) ?? releasesURL
+        let page = releasesURL
         return Result(current: currentVersion,
                       latest: latest,
                       hasUpdate: isNewer(latest, than: currentVersion),

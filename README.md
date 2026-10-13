@@ -45,7 +45,7 @@ Accessibility permission.
    shows a security warning. **Right-click the app → Open → Open** (you only
    need to do this once). Alternatively, run:
    ```sh
-   xattr -dr com.apple.quarantine /Applications/BadgeBar.app
+   # Do not strip quarantine attributes or bypass Gatekeeper.\n   # Prefer a locally built binary from audited source.
    ```
 4. Grant **Accessibility** permission when prompted (required to read badges).
 
@@ -62,10 +62,7 @@ Only the Swift toolchain from Command Line Tools is needed.
 open BadgeBar.app
 ```
 
-`build.sh` compiles the package, assembles `BadgeBar.app`, and code-signs it.
-Run `./setup-signing.sh` once to create a stable self-signed identity — then
-the Accessibility grant survives rebuilds. Without it, `build.sh` falls back to
-ad-hoc signing. The package also opens directly in Xcode (open `Package.swift`).
+`build.sh` compiles the package, assembles `BadgeBar.app`, and ad-hoc signs local builds. To use an existing Developer ID signing identity, set `BADGEBAR_SIGNING_IDENTITY` before building. The package also opens directly in Xcode (open `Package.swift`). Avoid the legacy `setup-signing.sh`, which generates a signing keychain with a fixed password.
 
 > Note: with ad-hoc signing (i.e. before running `setup-signing.sh`), macOS may
 > ask you to re-grant the Accessibility permission after each rebuild, because
@@ -203,3 +200,13 @@ if your local machine only has the Command Line Tools.
 [MIT](./LICENSE) © 2026 Ahmet Rende. In the spirit of the original
 [Doll](https://github.com/xiaogdgenuine/Doll) — use, modify, and redistribute
 freely.
+
+## Security notes (fork hardening)
+
+- Accessibility access is sensitive and must be explicitly requested by the user in Settings; no startup prompt.
+- The app reads Dock badge metadata, not Slack message contents. AX access is OS-wide even when the app code limits its reads.
+- Network use is limited to a user-initiated GitHub release check. Release version metadata is validated, and the browser destination is a fixed HTTPS URL.
+- Polling is suspended when no apps are monitored. AX tile caches are pruned on every monitored-app change.
+- Local builds are ad-hoc signed by default; they are not notarized. Never disable Gatekeeper as a substitute for provenance checks.
+- The old signing helper is retained for historical inspection only and is **not** used by the build.
+- CI validation does not substitute for testing AX functionality and permissions on a physical macOS host.

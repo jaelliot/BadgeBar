@@ -18,13 +18,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         monitor.onNewMessage = { [weak self] app, badge in
             self?.alerts.show(app: app, badge: badge)
         }
+        // Monitor changes from the picker, and stop the poller when idle.
+        store.onMonitoredAppsChanged = { [weak self] in
+            self?.monitor.monitoredAppsDidChange()
+            self?.statusBar.sync()
+        }
         monitor.start()
 
-        // Ask for Accessibility permission up front — nothing can be read
-        // from the Dock without it.
-        if !Accessibility.isTrusted {
-            Accessibility.prompt()
-        }
+        // Accessibility is powerful; request it only from a user action.
 
         // First run (or everything removed): show the picker so there is a
         // way in. Otherwise the per-app status items are the entry point.

@@ -56,6 +56,7 @@ enum L {
             "Granted — badges can be read from the Dock.": "Verildi — rozetler Dock'tan okunabilir.",
             "Required to read badges from the Dock.": "Rozetleri Dock'tan okumak için gerekli.",
             "Open Settings": "Ayarları Aç",
+            "Grant Access": "Erişim Ver",
             "About": "Hakkında",
             "Quit BadgeBar": "BadgeBar'dan Çık",
             // Picker / list

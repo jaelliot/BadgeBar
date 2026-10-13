@@ -38,9 +38,14 @@ final class AppStore {
     var badges: [String: String] = [:]
 
     private let storageKey = "BadgeBar.monitoredApps.v1"
+    private let defaults: UserDefaults
 
-    init() {
-        if let data = UserDefaults.standard.data(forKey: storageKey),
+    // The owner can pause polling and synchronize the menu bar immediately.
+    @ObservationIgnored var onMonitoredAppsChanged: (() -> Void)?
+
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+        if let data = defaults.data(forKey: storageKey),
            let apps = try? JSONDecoder().decode([MonitoredApp].self, from: data) {
             monitoredApps = apps
         }
@@ -57,6 +62,7 @@ final class AppStore {
     }
 
     func remove(_ bundleId: String) {
+        guard isMonitored(bundleId) else { return }
         monitoredApps.removeAll { $0.bundleId == bundleId }
         badges[bundleId] = nil
         persist()
@@ -77,7 +83,8 @@ final class AppStore {
 
     private func persist() {
         if let data = try? JSONEncoder().encode(monitoredApps) {
-            UserDefaults.standard.set(data, forKey: storageKey)
+            defaults.set(data, forKey: storageKey)
         }
+        onMonitoredAppsChanged?()
     }
 }
