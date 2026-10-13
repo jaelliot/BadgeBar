@@ -19,10 +19,11 @@ final class StatusItemController: NSObject {
     private var orderedIds: [String] = []                  // creation order of per-app items
     private var controlItem: NSStatusItem?
     private var controlWarning = false
-    private let runningApps = RunningApps()
+    private let runningApps: RunningApps
 
-    init(store: AppStore) {
+    init(store: AppStore, runningApps: RunningApps) {
         self.store = store
+        self.runningApps = runningApps
         super.init()
     }
 
@@ -59,6 +60,10 @@ final class StatusItemController: NSObject {
         for app in apps where items[app.bundleId] == nil {
             let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
             if let button = item.button {
+                button.image = AppIcons.menuBarIcon(forBundleId: app.bundleId)
+                button.imagePosition = .imageLeft
+                button.imageScaling = .scaleProportionallyDown
+                button.font = .monospacedDigitSystemFont(ofSize: 11, weight: .medium)
                 button.target = self
                 button.action = #selector(handleClick(_:))
                 button.sendAction(on: [.leftMouseUp, .rightMouseUp])
@@ -89,15 +94,16 @@ final class StatusItemController: NSObject {
             if !item.isVisible { item.isVisible = true }
 
             let showsCount = app.showsCount(default: showCount)
-            // Only redraw when the displayed state actually changed.
-            let key = "\(badge ?? "")|\(showsCount ? 1 : 0)|\(dimWhenNoBadge ? 1 : 0)"
+            let title = BadgeIcon.menuTitle(for: badge, showsCount: showsCount)
+            let dimmed = dimWhenNoBadge && !hasBadge
+            // Only change native text/tint when the presentation changed.
+            // No new NSImage is drawn for each unread-count update.
+            let key = "\(title)|\(dimmed ? 1 : 0)"
             if lastRenderKey[app.bundleId] != key {
                 lastRenderKey[app.bundleId] = key
-                button.image = BadgeIcon.render(appIcon: AppIcons.icon(forBundleId: app.bundleId),
-                                                badge: badge,
-                                                showsCount: showsCount,
-                                                dimWhenEmpty: dimWhenNoBadge)
-                button.toolTip = hasBadge ? "\(app.name) — \(badge!)" : app.name
+                button.title = title
+                button.contentTintColor = dimmed ? .tertiaryLabelColor : nil
+                button.toolTip = title.isEmpty ? app.name : "\(app.name): \(title.trimmingCharacters(in: .whitespaces))"
             }
         }
 
@@ -187,8 +193,7 @@ final class StatusItemController: NSObject {
 
     @objc private func menuRemove(_ sender: NSMenuItem) {
         guard let bundleId = sender.representedObject as? String else { return }
-        store.remove(bundleId)
-        sync()
+        store.remove(bundleId)  // store callback invokes sync
     }
 
     @objc private func menuQuit() {
@@ -199,17 +204,15 @@ final class StatusItemController: NSObject {
         guard let id = sender.representedObject as? String,
               var app = store.monitoredApps.first(where: { $0.bundleId == id }) else { return }
         app.showCountOverride = !app.showsCount(default: Settings.showCount)
-        store.update(app)
         lastRenderKey[id] = nil
-        sync()
+        store.update(app)  // store callback invokes sync
     }
 
     @objc private func toggleAlert(_ sender: NSMenuItem) {
         guard let id = sender.representedObject as? String,
               var app = store.monitoredApps.first(where: { $0.bundleId == id }) else { return }
         app.alertOverride = !app.alerts(default: Settings.floatingAlertEnabled)
-        store.update(app)
-        sync()
+        store.update(app)  // store callback invokes sync
     }
 
     @objc private func resetOverrides(_ sender: NSMenuItem) {
@@ -217,9 +220,8 @@ final class StatusItemController: NSObject {
               var app = store.monitoredApps.first(where: { $0.bundleId == id }) else { return }
         app.showCountOverride = nil
         app.alertOverride = nil
-        store.update(app)
         lastRenderKey[id] = nil
-        sync()
+        store.update(app)  // store callback invokes sync
     }
 
     @objc private func checkForUpdates() {

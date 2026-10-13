@@ -26,6 +26,29 @@ final class BadgeBarTests: XCTestCase {
         XCTAssertFalse(BadgeMonitor.isNewMessage(old: "A", new: "A"))
     }
 
+    // MARK: - Monochrome menu-bar presentation
+
+    func testBadgeTitleFormatsCompactCounts() {
+        XCTAssertEqual(BadgeIcon.menuTitle(for: "1", showsCount: true), " 1")
+        XCTAssertEqual(BadgeIcon.menuTitle(for: "9+", showsCount: true), " 9+")
+        XCTAssertEqual(BadgeIcon.menuTitle(for: "99", showsCount: true), " 99")
+        XCTAssertEqual(BadgeIcon.menuTitle(for: "100", showsCount: true), " 99+")
+        XCTAssertEqual(BadgeIcon.menuTitle(for: "99999999999999", showsCount: true), " 99+")
+    }
+
+    func testBadgeTitleAvoidsDisplayingArbitraryAccessibilityText() {
+        XCTAssertEqual(BadgeIcon.menuTitle(for: "unread message preview", showsCount: true), " •")
+        XCTAssertEqual(BadgeIcon.menuTitle(for: "9\nPrivate information", showsCount: true), " •")
+        XCTAssertEqual(BadgeIcon.menuTitle(for: "anything", showsCount: false), " •")
+    }
+
+    func testBadgeTitleHasNoCountWhenClear() {
+        XCTAssertEqual(BadgeIcon.menuTitle(for: nil, showsCount: true), "")
+        XCTAssertEqual(BadgeIcon.menuTitle(for: "", showsCount: true), "")
+        XCTAssertEqual(BadgeIcon.menuTitle(for: "  ", showsCount: true), "")
+        XCTAssertEqual(BadgeIcon.menuTitle(for: "1", showsCount: false), " •")
+    }
+
     // MARK: - Version comparison
 
     func testVersionComparison() {

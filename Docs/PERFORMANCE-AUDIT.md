@@ -9,7 +9,7 @@ This is a source review and measurement plan, not a claim of measured speedups. 
 1. BadgeMonitor.scheduleTimer creates a repeating timer (default: 1 second). If no apps are selected, the timer is suspended.
 2. BadgeMonitor.tick performs an Accessibility trust check, calls BadgeReader.badges, compares badge states, and calls the status-bar synchronization callback.
 3. BadgeReader.badges requests AXStatusLabel synchronously from the Dock for each cached tile; it performs a bounded Dock traversal when handles are missing or stale.
-4. StatusItemController.sync loops through selected apps, but only regenerates NSImage objects when the displayed badge/state changes.
+4. StatusItemController.sync loops through selected apps, but it updates native status-button text/tint only when the displayed state changes. Each app's template icon is drawn/cached once, not regenerated for every badge count.
 5. SettingsView's app picker displays Spotlight-discovered applications. Sorting is now done once at discovery completion, with only filtering on search.
 
 ## Low-risk changes in this PR
@@ -18,6 +18,26 @@ This is a source review and measurement plan, not a claim of measured speedups. 
 - Eliminate the duplicate status-bar sync triggered by a monitored-app change (the monitor already invokes the callback).
 - Sort installed applications once after Spotlight discovery, preserving the existing case-insensitive order.
 - Add static-name os signpost intervals for PollCycle, AXBadgeRead, AXDockWalk, and StatusBarSync. Signposts contain **no app names, badge values, message contents, user IDs, or other application data**.
+
+## Follow-up: lightweight monochrome status UI
+
+The proposed follow-up replaces per-notification composited color NSImages with
+AppKit's template icons and NSStatusBarButton titles. It also shares one
+event-driven RunningApps cache between badge polling and status-bar visibility,
+eliminating repeated running-process queries while a monitored app lacks a
+Dock tile.
+
+This is a code-level optimization; **no runtime savings have been measured**.
+Compare allocations, memory residency, CPU wakeups, AX reads, and status-bar
+update latency before and after the change. Verify icon legibility in dark and
+light menu bars, including Slack's neutral hash symbol. Badge text should
+never become an unbounded layout string: numeric values cap at 99+; arbitrary
+AX labels render a neutral dot. Floating alerts use translucent material
+and monochrome outlines instead of red fills.
+
+The Dock AX reads still execute on MainActor. These changes do **not**
+address that largest potential UI-stall source; moving AX calls to a worker
+remains a separate experiment requiring macOS profiling and concurrency tests.
 
 ## Instrumentation protocol
 
@@ -41,6 +61,9 @@ Test matrix:
 - Dock process restart, app launch/quit, missing Dock tile, and Accessibility revocation/regrant.
 - Rapid changes to the watched-app list, toggle count/dot display, and search the installed-app picker.
 - Verify rendered icons, floating alerts, login persistence and keyboard responsiveness.
+- Verify high-contrast white-on-dark and black-on-light display; no branded colors in menu-bar icons or unread indicators.
+- Verify badge labels: nil, 1, 9+, 99+, 100, huge numeric input, and nonnumeric AX text (render as neutral dot).
+- Compare process-state lookups during prolonged missing Dock tile with one and ten monitored apps.
 
 ## Follow-up experiments (not yet implemented)
 

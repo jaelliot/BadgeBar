@@ -1,21 +1,43 @@
 import AppKit
 
-/// Single cached source of app icons keyed by bundle id. NSCache evicts under
-/// memory pressure, so there's nothing to prune manually.
+/// A small cache of monochrome status-bar images. No full-resolution app icons
+/// are retained after the one-time template render.
+@MainActor
 enum AppIcons {
-    private static let cache = NSCache<NSString, NSImage>()
+    private static let menuBarCache: NSCache<NSString, NSImage> = {
+        let cache = NSCache<NSString, NSImage>()
+        cache.countLimit = 32
+        return cache
+    }()
 
-    static func icon(forBundleId bundleId: String) -> NSImage {
-        if let hit = cache.object(forKey: bundleId as NSString) {
-            return hit
-        }
+    static func menuBarIcon(forBundleId bundleId: String) -> NSImage {
+        if let hit = menuBarCache.object(forKey: bundleId as NSString) { return hit }
+
+        let size = NSSize(width: 18, height: 18)
         let image: NSImage
-        if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleId) {
-            image = NSWorkspace.shared.icon(forFile: url.path)
+
+        if bundleId == "com.tinyspeck.slackmacgap",
+           let symbol = NSImage(systemSymbolName: "number", accessibilityDescription: "Slack") {
+            // Slack's original icon can appear as a square when templated.
+            image = symbol
+            image.size = size
         } else {
-            image = NSImage(systemSymbolName: "app.dashed", accessibilityDescription: nil) ?? NSImage()
+            let source: NSImage
+            if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleId) {
+                source = NSWorkspace.shared.icon(forFile: url.path)
+            } else {
+                source = NSImage(systemSymbolName: "app.dashed", accessibilityDescription: nil) ?? NSImage()
+            }
+            let template = NSImage(size: size)
+            template.lockFocus()
+            source.draw(in: NSRect(origin: .zero, size: size),
+                        from: .zero, operation: .sourceOver, fraction: 1.0)
+            template.unlockFocus()
+            image = template
         }
-        cache.setObject(image, forKey: bundleId as NSString)
+
+        image.isTemplate = true
+        menuBarCache.setObject(image, forKey: bundleId as NSString)
         return image
     }
 }

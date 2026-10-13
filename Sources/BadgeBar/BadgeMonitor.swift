@@ -4,11 +4,12 @@ import os
 /// Drives the once-per-second poll of the Dock and pushes fresh badge values
 /// into the store. The Accessibility API can't notify us when a tile's
 /// attribute changes, so polling is the pragmatic approach — a single tree
-/// walk per second costs well under a millisecond.
+/// walk is avoided during normal cached operation. Real-host measurements
+/// are required to establish typical and tail latency.
 @MainActor
 final class BadgeMonitor {
     private let store: AppStore
-    private let reader = BadgeReader()
+    private let reader: BadgeReader
     private let signposter = OSSignposter(subsystem: "com.ahmetrende.badgebar", category: "Performance")
     private var timer: Timer?
     private var currentInterval: TimeInterval = 0
@@ -26,8 +27,9 @@ final class BadgeMonitor {
     /// Called when a monitored app's badge appears or increases.
     var onNewMessage: ((MonitoredApp, String) -> Void)?
 
-    init(store: AppStore) {
+    init(store: AppStore, runningApps: RunningApps) {
         self.store = store
+        self.reader = BadgeReader(runningApps: runningApps)
     }
 
     func start() {

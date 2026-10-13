@@ -186,7 +186,7 @@ private struct PreferencesTab: View {
             Section(L.t("Permissions")) {
                 HStack {
                     Image(systemName: accessibilityTrusted ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
-                        .foregroundStyle(accessibilityTrusted ? .green : .orange)
+                        .foregroundStyle(Color.primary)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(L.t("Accessibility access"))
                         Text(accessibilityTrusted
