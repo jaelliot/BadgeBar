@@ -17,10 +17,11 @@ reliable way to read it is from the **Dock**: apps render the count onto their
 Dock tile, and the Dock exposes it via the Accessibility API as the tile's
 `AXStatusLabel` attribute.
 
-BadgeBar walks the Dock's accessibility tree once per second and copies the
-badge of each monitored app into its own menu-bar status item. (Accessibility
-can't notify on attribute changes, so a 1-second poll is used — it costs well
-under a millisecond.)
+BadgeBar samples cached Dock tiles at a configurable interval (1 second by
+default). It walks the Dock accessibility tree only when selected app handles
+are missing or stale. Sampling is synchronous and may block the main thread
+when the Dock is slow; real-host profiling is documented in
+[Docs/PERFORMANCE-AUDIT.md](Docs/PERFORMANCE-AUDIT.md).
 
 This means **you must grant BadgeBar the Accessibility permission**
 (System Settings → Privacy & Security → Accessibility), otherwise nothing can

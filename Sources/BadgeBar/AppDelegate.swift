@@ -20,8 +20,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
         // Monitor changes from the picker, and stop the poller when idle.
         store.onMonitoredAppsChanged = { [weak self] in
+            // The monitor emits onTick even when monitoring becomes empty.
+            // Avoid synchronizing the menu bar twice for every preference change.
             self?.monitor.monitoredAppsDidChange()
-            self?.statusBar.sync()
         }
         monitor.start()
 

@@ -1,5 +1,6 @@
 import AppKit
 import ApplicationServices
+import os
 
 /// Reads unread-badge text from the Dock's accessibility tree.
 ///
@@ -11,6 +12,7 @@ import ApplicationServices
 @MainActor
 final class BadgeReader {
     private let statusLabelAttribute = "AXStatusLabel" as CFString
+    private let signposter = OSSignposter(subsystem: "com.ahmetrende.badgebar", category: "Performance")
 
     /// Rate-limit walks triggered purely by a running-but-unresolved app.
     private let missingWalkBackoff = 3
@@ -32,6 +34,8 @@ final class BadgeReader {
 
     /// Returns `[bundleId: badgeText]` for apps that currently have a badge.
     func badges(for apps: [MonitoredApp]) -> [String: String] {
+        let interval = signposter.beginInterval("AXBadgeRead", id: signposter.makeSignpostID())
+        defer { signposter.endInterval("AXBadgeRead", interval) }
         retainOnly(bundleIDs: Set(apps.map(\.bundleId)))
 
         var result: [String: String] = [:]
@@ -108,6 +112,8 @@ final class BadgeReader {
     }
 
     private func walkDock() -> DockScan {
+        let interval = signposter.beginInterval("AXDockWalk", id: signposter.makeSignpostID())
+        defer { signposter.endInterval("AXDockWalk", interval) }
         guard let dock = currentDock() else { return DockScan() }
         var scan = DockScan()
         var remainingNodes = 512 // Bound unexpectedly large or malformed trees.
