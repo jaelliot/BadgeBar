@@ -2,6 +2,8 @@
 
 ![BadgeBar — app unread badges mirrored into the macOS menu bar](Docs/badgebar.png)
 
+*The image above shows the original upstream appearance. This fork's menu-bar icons and unread indicators are monochrome.*
+
 Mirror app **unread badges** (Mail, Slack, Microsoft Teams, …) into the macOS
 **menu bar**, so you never miss a message while working full-screen or on a
 second display where the Dock isn't visible.
@@ -29,26 +31,26 @@ be read.
 
 ## Install
 
-### Homebrew
+### Homebrew (upstream release only)
 
 ```sh
 brew install --cask ahmetrende/tap/badgebar
 ```
 
-Then open it once via right-click → **Open** (see step 3 below), and grant
-Accessibility permission.
+**This cask installs the original upstream release, not the changes in this
+fork.** For a local build of this fork, use the instructions below instead of
+the upstream cask.
 
 ### Manual (DMG)
 
 1. Download `BadgeBar.dmg` from the [latest release](../../releases/latest).
 2. Open it and drag **BadgeBar** into **Applications**.
-3. **First launch:** because the app isn't notarized by Apple, double-clicking
-   shows a security warning. **Right-click the app → Open → Open** (you only
-   need to do this once). Alternatively, run:
-   ```sh
-   # Do not strip quarantine attributes or bypass Gatekeeper.\n   # Prefer a locally built binary from audited source.
-   ```
-4. Grant **Accessibility** permission when prompted (required to read badges).
+3. **First launch:** this upstream DMG is not notarized. Decide whether to
+   trust its publisher before allowing it through macOS's security warning.
+   Do not strip quarantine attributes or globally disable Gatekeeper.
+4. For local fork builds, choose **Grant Access** under BadgeBar Settings
+   after reviewing the source. Accessibility consent is never prompted at
+   startup by the fork.
 
 Requires macOS 14 (Sonoma) or later, Apple Silicon or Intel.
 
@@ -65,9 +67,9 @@ open BadgeBar.app
 
 `build.sh` compiles the package, assembles `BadgeBar.app`, and ad-hoc signs local builds. To use an existing Developer ID signing identity, set `BADGEBAR_SIGNING_IDENTITY` before building. The package also opens directly in Xcode (open `Package.swift`). Avoid the legacy `setup-signing.sh`, which generates a signing keychain with a fixed password.
 
-> Note: with ad-hoc signing (i.e. before running `setup-signing.sh`), macOS may
-> ask you to re-grant the Accessibility permission after each rebuild, because
-> the binary's signature changes.
+> Note: ad-hoc signatures may require renewed Accessibility consent after a
+> rebuild. Only use a signing identity you control; the older
+> `setup-signing.sh` is not part of the build path.
 
 ## Usage
 
@@ -92,7 +94,7 @@ The configuration window has two tabs:
   list to reorder** how icons appear in the menu bar.
 - **Settings**:
   - **Menu bar**
-    - *Show unread count* — off shows a small red dot instead of the number.
+    - *Show unread count* — off shows a small monochrome dot instead of the number.
     - *Only show an app when it has a notification* — hides the icon until
       there's an unread badge.
     - *Dim the icon when there's no notification* — greys it out instead of
@@ -113,6 +115,21 @@ override *Show unread count* or the floating alert just for that app.
 
 The UI is localized (English / Turkish, following your system language).
 
+## Menu-bar appearance
+
+The fork uses **monochrome template icons and native status-button text**, not
+the original colorful app icons or red count pills. Colors adapt automatically
+to the system menu-bar appearance: typically white symbols on a dark bar, and
+dark symbols on a light bar. The app does not alter the system menu-bar
+background or introduce a theme engine.
+
+- Slack uses a neutral hash icon, avoiding its full-color app icon's opaque
+  background when used as a template.
+- Badge counts are capped at `99+` to avoid taking over the menu bar.
+  Non-numeric Accessibility labels display a simple dot, not arbitrary text.
+- The optional floating alert uses a clear/translucent material, a monochrome
+  icon, and a neutral outlined badge.
+
 ## Performance
 
 BadgeBar runs in the background all day, so each 1 Hz poll is kept as cheap as
@@ -123,8 +140,9 @@ possible:
   Accessibility tree walk. A walk happens only when a tile goes stale (app
   quit, Dock restarted), and is backed off to ~every few seconds for apps that
   have no tile at all.
-- **No redundant drawing.** A menu-bar icon is re-rendered only when its badge
-  (or a display setting) actually changes — not 86 400 times a day.
+- **Native menu-bar rendering.** A cached system-template icon is created once
+  per app. Badge changes update the native button title rather than drawing
+  a fresh color NSImage. Icons and counts follow macOS light/dark appearance.
 - **Event-driven running state.** "Hide when not running" uses a set kept up to
   date by workspace launch/quit notifications, instead of enumerating every
   process each second.
@@ -132,8 +150,9 @@ possible:
   the installed-apps list and its Spotlight query don't linger in memory while
   idle.
 
-Measured idle cost (3 monitored apps, Apple Silicon): ~**0.3 % of a single
-core** and ~**11 MB** of private (dirty) memory.
+**Measurements:** the fork has not yet been profiled on the intended Mac.
+Use Instruments and [the performance protocol](Docs/PERFORMANCE-AUDIT.md)
+to establish actual CPU, energy, wakeups and latency.
 
 ## App icon
 
@@ -176,11 +195,11 @@ Sources/BadgeBar/
   Accessibility.swift          AX permission check/prompt
   BadgeReader.swift            Reads AXStatusLabel from the Dock (cached tiles)
   BadgeMonitor.swift           1 Hz poll loop + new-message detection
-  RunningApps.swift            Event-driven running-app set
+  RunningApps.swift            Shared event-driven running-app set
   InstalledApps.swift          Spotlight-based app discovery
   StatusItemController.swift   One NSStatusItem per app + click handling
   AppLauncher.swift            Open / toggle / activate apps
-  BadgeIcon.swift              Renders icon + red badge for the menu bar
+  BadgeIcon.swift              Pure, bounded unread-count/dot formatting for menu bar
   AlertPresenter.swift         Floating on-screen alert on new messages
   SettingsView.swift           SwiftUI settings window
 ```

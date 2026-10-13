@@ -32,9 +32,11 @@ final class AlertPresenter {
         showing = true
         let (app, badge) = queue.removeFirst()
 
-        let view = FloatingAlertView(icon: AppIcons.icon(forBundleId: app.bundleId),
+        let displayCount = BadgeIcon.menuTitle(for: badge, showsCount: true)
+            .trimmingCharacters(in: .whitespaces)
+        let view = FloatingAlertView(icon: AppIcons.menuBarIcon(forBundleId: app.bundleId),
                                      appName: app.name,
-                                     badge: badge) {
+                                     badge: displayCount) {
             AppLauncher.activate(bundleId: app.bundleId)
         }
 
@@ -140,7 +142,10 @@ private struct FloatingAlertView: View {
         HStack(spacing: 12) {
             Image(nsImage: icon)
                 .resizable()
-                .frame(width: 44, height: 44)
+                .renderingMode(.template)
+                .foregroundStyle(Color.primary)
+                .aspectRatio(contentMode: .fit)
+                .frame(width: 36, height: 36)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(appName.isEmpty ? " " : appName)
@@ -154,18 +159,18 @@ private struct FloatingAlertView: View {
             Spacer(minLength: 8)
 
             Text(badge)
-                .font(.headline)
-                .foregroundStyle(.white)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 5)
-                .background(Color.red, in: Capsule())
+                .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                .foregroundStyle(Color.primary)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .overlay(Capsule().strokeBorder(Color.primary.opacity(0.75), lineWidth: 1))
         }
         .padding(14)
         .frame(width: 300, height: 80)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 18))
         .overlay(
             RoundedRectangle(cornerRadius: 18)
-                .strokeBorder(.white.opacity(0.08))
+                .strokeBorder(Color.primary.opacity(0.12))
         )
         .contentShape(Rectangle())
         .onTapGesture(perform: onTap)

@@ -4,16 +4,17 @@ import SwiftUI
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private let store = AppStore()
+    private let runningApps = RunningApps()
     private var statusBar: StatusItemController!
     private var monitor: BadgeMonitor!
     private let alerts = AlertPresenter()
     private var settingsWindow: NSWindow?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        statusBar = StatusItemController(store: store)
+        statusBar = StatusItemController(store: store, runningApps: runningApps)
         statusBar.onConfigure = { [weak self] in self?.showSettings() }
 
-        monitor = BadgeMonitor(store: store)
+        monitor = BadgeMonitor(store: store, runningApps: runningApps)
         monitor.onTick = { [weak self] in self?.statusBar.sync() }
         monitor.onNewMessage = { [weak self] app, badge in
             self?.alerts.show(app: app, badge: badge)

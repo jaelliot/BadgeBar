@@ -21,6 +21,11 @@ final class BadgeReader {
     private var dockElement: AXUIElement?
     private var dockPID: pid_t = -1
     private var tileCache: [String: AXUIElement] = [:]   // bundleId -> Dock tile
+    private let runningApps: RunningApps
+
+    init(runningApps: RunningApps) {
+        self.runningApps = runningApps
+    }
 
     /// Drop stale handles immediately when the monitored-app set changes.
     func retainOnly(bundleIDs ids: Set<String>) {
@@ -86,9 +91,9 @@ final class BadgeReader {
     }
 
     private func isRunning(_ bundleId: String) -> Bool {
-        NSRunningApplication
-            .runningApplications(withBundleIdentifier: bundleId)
-            .contains { !$0.isTerminated }
+        // Reuse the process state maintained by NSWorkspace notifications.
+        // Avoid enumerating running processes in the polling hot path.
+        runningApps.contains(bundleId)
     }
 
     /// Reads `AXStatusLabel`. `valid` is false only when the element itself is
